@@ -27,22 +27,32 @@ def get_param(args):
 
 def check_file(file_name):
     file = os.path.join(DATA_DIR, file_name)
-    return file if os.path.exists(file) else "nonfiole"
+    if os.path.exists(file):
+        return file
+    else:
+        raise MyExc("no File")
+
+
+class MyExc(Exception):
+    pass
 
 
 def use_command(cmd, value, obj):
     match cmd:
         case 'filter':
-            res = filter(lambda line: line == value, obj)
+            return filter(lambda line: line == value, obj)
         case "map":
-            res = list(map(lambda line: line.split(), obj))[int(value)]
+            return list(map(lambda line: line.split(), obj))[int(value)]
         case 'unique':
-            res = set(obj)
+            return set(obj)
         case 'sort':
             revers = value == "desc"
-            res = sorted(obj, reverse=revers)
+            return sorted(obj, reverse=revers)
         case 'limit':
-            res = 1
+            return list(obj)[:value]
+        case _:
+            raise MyExc("no command")
+
 
 @app.route("/perform_query", methods=["GET"])
 def perform_query():
@@ -53,13 +63,12 @@ def perform_query():
     try:
         param = get_param(request.args)
         file = check_file(param["file_name"])
-        lines = (line for line in open(param["file_name"]))
+        lines = (line for line in open(file))
         print(lines)
 
-    except:
-        pass
-
-    return app.response_class('', content_type="text/plain")
+        return app.response_class('ok', content_type="text/plain")
+    except MyExc as e:
+        return app.response_class(e, content_type="text/plain")
 
 
 if __name__ == '__main__':
