@@ -49,14 +49,9 @@ def get_file_name(agrs):
 
 
 def get_param(args):
-    permitted_command = ['filter', 'map', 'unique', 'sort', 'limit']
-    commands = {key: value for key, value in request.args.items()}
+    commands = {key: value for key, value in args.items()}
     del commands['file_name']
-    no_cmd = [cmd for cmd in permitted_command if cmd not in cmd]
-    if no_cmd:
-        raise MyExc(f'{no_cmd} не известные команды')
-    else:
-        return commands
+    return commands
 
 
 @app.route("/perform_query", methods=["GET"])
