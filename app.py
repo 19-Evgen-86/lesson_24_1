@@ -1,6 +1,9 @@
 import os
+import re
 
 from flask import Flask, request
+from classes import Response, MyExc
+import marshmallow_dataclass
 
 app = Flask(__name__)
 
@@ -9,18 +12,6 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 LST_PARAM = ['cmd1', 'cmd2', 'file_name']
 LST_CMD = ['filter', 'map', 'unique', 'sort', 'limit']
-
-
-def check_file(file_name):
-    file = os.path.join(DATA_DIR, file_name)
-    if os.path.exists(file):
-        return file
-    else:
-        raise MyExc("no File")
-
-
-class MyExc(Exception):
-    pass
 
 
 def use_command(cmd, value, obj):
@@ -36,41 +27,35 @@ def use_command(cmd, value, obj):
             return list(sorted(obj, reverse=revers))
         case 'limit':
             return list(obj[:int(value)])
+        case 'regex':
+            return list(map(lambda line: re.findall(value, line), obj))
+        case 'file_name':
+            pass
         case _:
             raise MyExc("no command")
 
 
-def get_file_name(agrs):
-    file_name = agrs.get("file_name")
-    if file_name:
-        return check_file(file_name)
+def get_file(file_name):
+    file = os.path.join(DATA_DIR, file_name)
+    if os.path.exists(file):
+        return file
     else:
-        raise MyExc("file not found")
+        raise MyExc("File not Found")
 
 
-def get_param(args):
-    commands = {key: value for key, value in args.items()}
-    del commands['file_name']
-    return commands
-
-
-@app.route("/perform_query", methods=["GET"])
+@app.route("/perform_query", methods=["POST"])
 def perform_query():
-    # получить параметры query и file_name из request.args, при ошибке вернуть ошибку 400
-    # проверить, что файла file_name существует в папке DATA_DIR, при ошибке вернуть ошибку 400
-    # с помощью функционального программирования (функций filter, map), итераторов/генераторов сконструировать запрос
-    # вернуть пользователю сформированный результат
     try:
+
+        responseShema = marshmallow_dataclass.class_schema(Response)
+        response = responseShema().load(request.json)
         # получаем дескриптор файла
-        file = get_file_name(request.args)
-        # получаем словарь с командами
-        commands = get_param(request.args)
+        file = get_file(response.file_name)
         # создаем генератор для чтения файла
         lines = (line for line in open(file))
 
-        for cmd, value in commands.items():
+        for cmd, value in response.__dict__.items():
             lines = use_command(cmd, value, lines)
-
         result = '\n'.join(lines)
 
         return app.response_class(result, content_type="text/plain"), 200
@@ -81,4 +66,4 @@ def perform_query():
 
 
 if __name__ == '__main__':
-    app.run(DEBUG=True)
+    app.run(debug=True)
