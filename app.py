@@ -1,17 +1,15 @@
 import os
 import re
 
-from flask import Flask, request
-from classes import Response, MyExc
 import marshmallow_dataclass
+from flask import Flask, request
+
+from classes import Response, MyExc
 
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-
-LST_PARAM = ['cmd1', 'cmd2', 'file_name']
-LST_CMD = ['filter', 'map', 'unique', 'sort', 'limit']
 
 
 def use_command(cmd, value, obj):
@@ -28,7 +26,7 @@ def use_command(cmd, value, obj):
         case 'limit':
             return list(obj[:int(value)])
         case 'regex':
-            return list(map(lambda line: re.findall(value, line), obj))
+            return [line for line in obj if re.search(value, line) is not None]
         case 'file_name':
             pass
         case _:
@@ -47,17 +45,17 @@ def get_file(file_name):
 def perform_query():
     try:
 
-        responseShema = marshmallow_dataclass.class_schema(Response)
-        response = responseShema().load(request.json)
+        responseShema: marshmallow_dataclass = marshmallow_dataclass.class_schema(Response)
+        response: Response = responseShema().load(request.json)
         # получаем дескриптор файла
-        file = get_file(response.file_name)
+        file: str = get_file(response.file_name)
         # создаем генератор для чтения файла
         lines = (line for line in open(file))
 
-        for cmd, value in response.__dict__.items():
-            lines = use_command(cmd, value, lines)
-        result = '\n'.join(lines)
-
+        result_cmd1 = use_command(response.cmd1, response.value1, lines)
+        result_cmd2 = use_command(response.cmd2, response.value2, result_cmd1)
+        result = '\n'.join(result_cmd2)
+        print(result)
         return app.response_class(result, content_type="text/plain"), 200
 
     except MyExc as e:
